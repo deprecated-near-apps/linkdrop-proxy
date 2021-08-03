@@ -98,9 +98,11 @@ describe('Linkdrop Wrapper with callback', function () {
     const outcome = res.receipts_outcome.find(ro => ro.outcome.logs.some(l => accountRegex.test(l))).outcome;
     // console.log(outcome);
     assert.strictEqual(outcome.logs[1], new_account_id)
+    const value = JSON.parse(Buffer.from(res.status.SuccessValue, 'base64').toString());
     // let status = res.receipts_outcome.find(ro => ro.outcome.status.SuccessValue && ro.outcome.status.SuccessValue)
 		// true
-		assert.strictEqual(res.status.SuccessValue, 'dHJ1ZQ==');
+    // TODO: Base64 decode
+		assert.strictEqual(value, new_account_id);
 	});
 
 	

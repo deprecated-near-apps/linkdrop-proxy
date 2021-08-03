@@ -154,13 +154,12 @@ impl LinkDrop {
         match action {
             Action::Deposit(_) => promise,
             Action::DepositCallBack(_, receiver_id, gas) => {
-                promise.clone().then(linkdrop_callback::link_callback(
+                promise.then(linkdrop_callback::link_callback(
                     new_account_id,
                     &receiver_id,
                     0,
                     gas,
-                ));
-                promise
+                ))
             }
         }
     }
@@ -188,9 +187,9 @@ impl LinkDrop {
             ON_CREATE_ACCOUNT_GAS,
         )
     }
-
-    pub fn link_callback(account_id: AccountId) {
+    pub fn link_callback(account_id: AccountId) -> String {
         env::log_str("Account Created");
         env::log_str(account_id.as_str());
+        account_id.into()
     }
 }
