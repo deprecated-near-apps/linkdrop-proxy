@@ -12,14 +12,18 @@ let {
 
 let linkdropAccount = contractAccount;
 /// contractAccount is the devAccount - testing against deployed contract on testnet
-const useDeployedLinkdrop = true;
+const useDeployedLinkdrop = false;
 if (useDeployedLinkdrop) {
 	contractId = 'linkdrop-wrapper.testnet';
 	linkdropAccount = new Account(near.connection, contractId);
 }
 
+function tGas(s) { return s + '0'.repeat(12); }
+
 // 50 Tgas is enough
-const gas = '50000000000000';
+const gas = tGas("50");
+const double_gas = tGas("200")
+
 
 describe('Linkdrop Proxy', function () {
 	this.timeout(20000);
@@ -50,8 +54,8 @@ describe('Linkdrop Proxy', function () {
 			}
 		}
 
-// 		assert.notStrictEqual(state.code_hash, '11111111111111111111111111111111');
-// 	});
+		assert.notStrictEqual(state.code_hash, '11111111111111111111111111111111');
+	});
 
 	it('creation of linkdrop and wallet link for testing', async function() {
 		await contractAccount.functionCall({
@@ -62,7 +66,7 @@ describe('Linkdrop Proxy', function () {
 			},
 			gas,
 			// could be 0.02 N wallet needs to reduce gas from 100 Tgas to 50 Tgas
-			attachedDeposit: parseNearAmount('0.03')
+			attachedDeposit: parseNearAmount('0.3')
 		});
 
 		console.log(`https://wallet.testnet.near.org/linkdrop/${contractId}/${keyPair1.secretKey}?redirectUrl=https://example.com`);
@@ -73,16 +77,18 @@ describe('Linkdrop Proxy', function () {
 	it('creation of linkdrop', async function() {
 		const res = await contractAccount.functionCall({
 			contractId,
-			methodName: 'send',
+			methodName: 'send_with_callback',
 			args: {
-				public_key: public_key2
+				public_key: public_key2,
+        contract_id: contractId,
+        gas_required: gas,
 			},
 			gas,
-			attachedDeposit: parseNearAmount('0.02')
+			attachedDeposit: parseNearAmount('0.2')
 		});
 
-// 		assert.strictEqual(res.status.SuccessValue, '');
-// 	});
+		assert.strictEqual(res.status.SuccessValue, '');
+	});
 
 	it('creation of account', async function() {
 		// WARNING tests after this with contractAccount will fail - signing key lost
@@ -97,14 +103,18 @@ describe('Linkdrop Proxy', function () {
 				new_account_id,
 				new_public_key,
 			},
-			gas,
+			gas: double_gas
 		});
 
-		console.log(new_account_id);
-
-		// console.log(res)
+		const accountRegex = /Account Created/;
+    const outcome = res.receipts_outcome.find(ro => ro.outcome.logs.some(l => accountRegex.test(l))).outcome;
+    // console.log(outcome);
+    assert.strictEqual(outcome.logs[1], new_account_id)
+    const value = JSON.parse(Buffer.from(res.status.SuccessValue, 'base64').toString());
+    // let status = res.receipts_outcome.find(ro => ro.outcome.status.SuccessValue && ro.outcome.status.SuccessValue)
 		// true
-		assert.strictEqual(res.status.SuccessValue, 'dHJ1ZQ==');
+    // TODO: Base64 decode
+		assert.strictEqual(value, new_account_id);
 	});
 
 // 	// WARNING tests after this with contractAccount will fail - signing key lost

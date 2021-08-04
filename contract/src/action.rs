@@ -1,10 +1,11 @@
 use near_sdk::{AccountId, Balance, env};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use serde::{Deserialize,Serialize};
 
 use crate::*;
 
 /// 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(Serialize, Deserialize, BorshSerialize, BorshDeserialize, Clone)]
 pub enum Action {
   Deposit(Balance),
   DepositCallBack(Balance, AccountId, Gas),
