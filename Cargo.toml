@@ -6,7 +6,8 @@
 
 [workspace]
 members = [
-  "contract"
+  "contract",
+  "fake_testnet"
 ]
 
 [profile.release]

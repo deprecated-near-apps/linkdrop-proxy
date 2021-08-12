@@ -5,9 +5,6 @@
 	"scripts": {
 		"fix": "eslint test/ --fix",
 		"build:contract": "./build.sh",
-		"patch:config": "node ./utils/patch-config.js",
-		"dev:deploy": "yarn build:contract && rm -rf neardev && (near dev-deploy || exit 0) && yarn patch:config",
-		"test:deploy": "yarn dev:deploy && mocha",
 		"test": "mocha"
 	},
 	"dependencies": {
@@ -18,6 +15,7 @@
 		"acquit-markdown": "^0.1.0",
 		"eslint": "^7.29.0",
 		"near-api-js": "^0.41.0",
+		"near-runner": "near/runner-js#feat/call-with-key",
 		"node-fetch": "^2.6.1"
 	}
 }
