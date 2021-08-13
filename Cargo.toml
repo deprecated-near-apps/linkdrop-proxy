@@ -7,7 +7,7 @@
 [workspace]
 members = [
   "contract",
-  "fake_testnet"
+  "sandbox-linkdrop"
 ]
 
 [profile.release]

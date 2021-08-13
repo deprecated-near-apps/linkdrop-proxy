@@ -36,41 +36,41 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
 
   beforeAll(async () => {
     runner = await Runner.create(async ({ runtime }) => {
-      const linkdrop = await runtime.createAndDeploy(
+      const linkdropProxy = await runtime.createAndDeploy(
         "linkdrop",
         `${__dirname}/../target/wasm32-unknown-unknown/release/linkdrop_proxy.wasm`
       );
-      const testnet = Runner.networkIsTestnet() 
+      const networkLinkdrop = Runner.networkIsTestnet() 
           // Just need accountId "testnet"
         ? new ActualTestnet("testnet")
         // Otherwise use fake linkdrop acconut on sandbox
         : await runtime.createAndDeploy(
-            "testnet",
-            `${__dirname}/../target/wasm32-unknown-unknown/release/fake_linkdrop.wasm`
+            "sandbox",
+            `${__dirname}/../target/wasm32-unknown-unknown/release/sandbox_linkdrop.wasm`
           );
-      await linkdrop.call(
-        linkdrop,
+      await linkdropProxy.call(
+        linkdropProxy,
         "new",
         {
-          linkdrop_contract: testnet.accountId,
+          linkdrop_contract: networkLinkdrop.accountId,
         },
         {
           gas: tGas("10"),
         }
       );
-      return { linkdrop, testnet };
+      return { linkdropProxy, networkLinkdrop };
     });
   });
 
   test("Use `create_account_and_claim` to create a new account", async () => {
-    await runner.run(async ({ root, linkdrop, testnet }, runtime) => {
+    await runner.run(async ({ root, linkdropProxy, networkLinkdrop }, runtime) => {
       // Create temporary keys for access key on linkdrop
       const senderKey = createKeyPair();
       const public_key = senderKey.getPublicKey().toString();
 
       // This adds the key as a function access key on `create_account_and_claim`
       await root.call(
-        linkdrop,
+        linkdropProxy,
         "send",
         {
           public_key,
@@ -80,12 +80,12 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
         }
       );
       // Create a random subaccount
-      const new_account_id = `${randomAccountId()}.${testnet.accountId}`;
+      const new_account_id = `${randomAccountId()}.${networkLinkdrop.accountId}`;
       const actualKey = createKeyPair();
       const new_public_key = actualKey.getPublicKey().toString();
 
-      let res = await linkdrop.call_raw(
-        linkdrop,
+      let res = await linkdropProxy.call_raw(
+        linkdropProxy,
         "create_account_and_claim",
         {
           new_account_id,
@@ -112,7 +112,7 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
   });
 
   test("Use `claim` to transfer to an existing account", async () => {
-    await runner.run(async ({ root, linkdrop }, runtime) => {
+    await runner.run(async ({ root, linkdropProxy }, runtime) => {
       const bob = await runtime.createAccount("bob");
       const originalBalance = await bob.balance();
       // Create temporary keys for access key on linkdrop
@@ -121,7 +121,7 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
 
       // This adds the key as a function access key on `create_account_and_claim`
       await root.call(
-        linkdrop,
+        linkdropProxy,
         "send",
         {
           public_key,
@@ -132,8 +132,8 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
       );
       // can only create subaccounts
 
-      let res = await linkdrop.call_raw(
-        linkdrop,
+      let res = await linkdropProxy.call_raw(
+        linkdropProxy,
         "claim",
         {
           account_id: bob.accountId,

@@ -156,15 +156,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fake-linkdrop"
-version = "0.1.0"
-dependencies = [
- "near-contract-standards",
- "near-sdk",
- "serde",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -489,6 +480,15 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
+
+[[package]]
+name = "sandbox-linkdrop"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "serde",
+]
 
 [[package]]
 name = "semver"

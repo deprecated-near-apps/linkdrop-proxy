@@ -1,5 +1,5 @@
 [package]
-name = "fake-linkdrop"
+name = "sandbox-linkdrop"
 version = "0.1.0"
 authors = ["Ryan Mehta <ryan.mehta@gmail.com>"]
 edition = "2018"
