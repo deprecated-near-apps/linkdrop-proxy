@@ -5,7 +5,7 @@
 	"scripts": {
 		"fix": "eslint test/ --fix",
 		"build:contract": "./build.sh",
-		"test": "jest",
+		"test": "yarn test:sandbox && yarn test:testnet",
     "test:testnet": "NEAR_RUNNER_NETWORK=testnet jest",
     "test:sandbox": "jest"
 	},

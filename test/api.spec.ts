@@ -79,6 +79,7 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
           attachedDeposit: toYocto("2"),
         }
       );
+      // Create a random subaccount
       const new_account_id = `${randomAccountId()}.${testnet.accountId}`;
       const actualKey = createKeyPair();
       const new_public_key = actualKey.getPublicKey().toString();
