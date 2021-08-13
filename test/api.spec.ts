@@ -106,7 +106,7 @@ describe(`Running on ${Runner.getNetworkFromEnv()}`, () => {
       console.log(
         `new account created: ${
           new_account.accountId
-        } with balance  ${await new_account.balance()}`
+        } with balance ${await (await new_account.balance()).available} yoctoNear`
       );
     });
   });
