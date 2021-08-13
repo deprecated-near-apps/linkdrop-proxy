@@ -9,7 +9,7 @@ const double_gas = tGas("200");
 
 
 
-describe("Linkdrop Proxy", function () {
+describe("Linkdrop Proxy on " + Runner.getNetworkFromEnv(), function () {
   this.timeout(20000);
   
   // linkdrop keypairs
@@ -140,5 +140,5 @@ describe("Linkdrop Proxy", function () {
 });
  after(() => {
    // Required to exit for some reason
-   process.exit(0);
+   if (Runner.networkIsSandbox()) process.exit(0);
  })

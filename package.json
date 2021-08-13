@@ -1,21 +1,29 @@
 {
-	"name": "nft-standard",
+	"name": "linkdrop-proxy",
 	"version": "0.1.0",
 	"license": "MIT",
 	"scripts": {
 		"fix": "eslint test/ --fix",
 		"build:contract": "./build.sh",
-		"test": "mocha"
-	},
-	"dependencies": {
-		"mocha": "^9.0.1"
+		"test": "jest",
+    "test:testnet": "NEAR_RUNNER_NETWORK=testnet jest",
+    "test:sandbox": "jest"
 	},
 	"devDependencies": {
+    "@types/jest": "^27.0.1",
+		"jest": "^27.0.6",
+		"ts-jest": "^27.0.4",
 		"acquit": "^1.2.1",
 		"acquit-markdown": "^0.1.0",
 		"eslint": "^7.29.0",
 		"near-api-js": "^0.41.0",
-		"near-runner": "near/runner-js#feat/call-with-key",
-		"node-fetch": "^2.6.1"
-	}
+		"near-runner": "^0.4.0",
+		"node-fetch": "^2.6.1",
+		"typescript": "^4.3.5"
+	},
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/test/*.spec.ts"]
+  }
 }
