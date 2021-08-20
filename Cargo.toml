@@ -6,7 +6,8 @@
 
 [workspace]
 members = [
-  "contract"
+  "contract",
+  "sandbox-linkdrop"
 ]
 
 [profile.release]
