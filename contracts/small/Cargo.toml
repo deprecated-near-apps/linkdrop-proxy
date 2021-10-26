@@ -1,0 +1,17 @@
+[package]
+name = "linkdrop-proxy-small"
+version = "0.1.0"
+authors = ["Ryan Mehta <ryan.mehta@gmail.com>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = "4.0.0-pre.1"
+near-contract-standards = "4.0.0-pre.2"
+serde = "1.0.0"
+near-units = "0.2.0"
+
+[features]
+mainnet=[]
