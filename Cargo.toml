@@ -6,8 +6,9 @@
 
 [workspace]
 members = [
-  "contract",
-  "sandbox-linkdrop"
+  "contracts/linkdrop-proxy",
+  "sandbox-linkdrop",
+  # "contracts/linkdrop-proxy-callback"
 ]
 
 [profile.release]

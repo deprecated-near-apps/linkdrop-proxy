@@ -108,11 +108,7 @@ impl LinkDrop {
             .remove(&env::signer_account_pk())
             .expect("Unexpected public key");
         match action {
-            Action::Deposit(amount) => {
-                Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-                Promise::new(account_id).transfer(amount)
-            }
-            Action::DepositCallBack(amount, receiver_id, gas) => {
+            Action(amount, receiver_id, gas) => {
                 Promise::new(env::current_account_id())
                     .delete_key(env::signer_account_pk())
                     .and(Promise::new(account_id.clone()).transfer(amount))
