@@ -5,8 +5,8 @@
 		"scripts": {
 				"fix": "eslint __test__/* --fix",
 				"build": "./build.sh",
-				"test": "near-runner-jest",
-				"test:testnet": "NEAR_RUNNER_NETWORK=testnet yarn test",
+				"test": "near-workspaces-ava",
+				"test:testnet": "NEAR_WORKSPACES_NETWORK=testnet yarn test",
 				"test:sandbox": "yarn test"
 		},
 		"devDependencies": {
@@ -14,8 +14,8 @@
 				"acquit-markdown": "^0.1.0",
 				"eslint": "^7.29.0",
 				"near-api-js": "^0.41.0",
-				"near-runner-jest": "^0.1.8",
 				"near-units": "^0.1.9",
+				"near-workspaces-ava": "^1.0.0",
 				"node-fetch": "^2.6.1"
 		}
 }

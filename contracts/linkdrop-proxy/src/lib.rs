@@ -104,7 +104,7 @@ impl LinkDrop {
 
     /// Returns the balance associated with given key.
     pub fn get_key_balance(&self, key: PublicKey) -> U128 {
-        self._get_key_balance(&key).into()
+        self.internal_get_key_balance(&key).into()
     }
 
     #[private]
@@ -153,7 +153,7 @@ impl LinkDrop {
             .expect("Unexpected public key")
     }
 
-    fn _get_key_balance(&self, key: &PublicKey) -> Balance {
+    fn internal_get_key_balance(&self, key: &PublicKey) -> Balance {
         self.accounts.get(key.into()).expect("Key is missing")
     }
 

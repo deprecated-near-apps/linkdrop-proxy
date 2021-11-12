@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshSerialize, BorshDeserialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
     env, ext_contract, near_bindgen, require, AccountId, Balance, Gas, Promise,
@@ -7,17 +7,17 @@ use near_sdk::{
 use near_units::parse_near;
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(Default, BorshSerialize, BorshDeserialize)]
 pub struct LinkDrop {}
 
 /// 0.064311394105062020653824 N
-pub(crate) const ACCESS_KEY_ALLOWANCE: u128 = 109781200101466873685832;
+pub(crate) const ACCESS_KEY_ALLOWANCE: u128 = parse_near!("0 N");
 /// can take 0.5 of access key since gas required is 6.6 times what was actually used
-const ON_CREATE_ACCOUNT_GAS: Gas = Gas(16_000_000_000_000);
+const ON_CREATE_ACCOUNT_GAS: Gas = Gas(30_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
 
 /// Gas attached to the callback from account creation.
-pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(3_000_000_000_000);
+pub const ON_CREATE_ACCOUNT_CALLBACK_GAS: Gas = Gas(30_000_000_000_000);
 
 #[ext_contract(ext_linkdrop)]
 trait ExtLinkdrop {
@@ -29,16 +29,12 @@ trait ExtLinkdrop {
 fn assert_deposit() {
     require!(
         env::attached_deposit() >= ACCESS_KEY_ALLOWANCE + LinkDrop::get_deposit(),
-        "Attached deposit must be greater than or equal to ACCESS_KEY_ALLOWANCE + Deposit"
+        "Attached deposit < ACCESS_KEY_ALLOWANCE + Deposit"
     );
 }
 
 fn is_promise_success() -> bool {
-    assert_eq!(
-        env::promise_results_count(),
-        1,
-        "Contract expected a result on the callback"
-    );
+    require!(env::promise_results_count() == 1);
     match env::promise_result(0) {
         PromiseResult::Successful(_) => true,
         _ => false,
@@ -52,7 +48,7 @@ impl LinkDrop {
     #[payable]
     pub fn send(&mut self, public_key: PublicKey) -> Promise {
         assert_deposit();
-        self.add_key(public_key.into())
+        self.add_key(public_key)
     }
 
     /// Claim tokens for specific account that are attached to the public key this tx is signed with.
@@ -80,17 +76,15 @@ impl LinkDrop {
 
     /// Returns the balance associated with given key.
     #[allow(unused_variables)]
-    pub fn get_key_balance(&self, key: PublicKey) -> U128 {
+    pub fn get_key_balance(&self) -> U128 {
         LinkDrop::get_deposit().into()
     }
 
     #[private]
-    pub fn on_create_and_claim(&mut self) -> bool {
+    pub fn on_create_and_claim(&mut self) {
         if is_promise_success() {
-            delete_current_access_key();
-            return true;
+          delete_current_access_key();
         }
-        false
     }
 }
 
@@ -130,7 +124,7 @@ impl LinkDrop {
     }
 
     fn get_deposit() -> u128 {
-        option_env!("LINKDROP_DEPOSIT").map_or_else(|| parse_near!("1 N"), |s| s.parse().unwrap())
+       parse_near!("0.1 N") + parse_near!("1.8 mN")
     }
 }
 

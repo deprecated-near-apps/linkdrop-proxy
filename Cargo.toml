@@ -6,7 +6,7 @@
 
 [workspace]
 members = [
-  "contracts/linkdrop-proxy",
+  "contracts/*",
   "sandbox-linkdrop",
   # "contracts/linkdrop-proxy-callback"
 ]
