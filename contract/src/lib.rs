@@ -1,44 +1,98 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::serde_json::{json};
 use near_sdk::{
-    env, ext_contract, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, PanicOnDefault,
-    Promise, PromiseResult, PublicKey,
+    env, ext_contract, near_bindgen, AccountId, BorshStorageKey, Gas, PanicOnDefault,
+    Promise, PromiseResult, PublicKey, PromiseOrValue, promise_result_as_success,
 };
 
-#[near_bindgen]
-#[derive(PanicOnDefault, BorshDeserialize, BorshSerialize)]
-pub struct LinkDrop {
-    pub linkdrop_contract: AccountId,
-    pub accounts: LookupMap<PublicKey, Balance>,
-}
+/* 
+    minimum amount of storage required to cover:
+    - storing access key on the contract
+    - storing pub key and account data in the map
+    Some of this can be refunded once the account is claimed.
+*/ 
+const STORAGE_ALLOWANCE: u128 = 5_000_000_000_000_000_000_000; // 0.005 N 
+/* 
+    allowance for the access key to cover GAS fees when the account is claimed. This amount is will not be "reserved" on the contract but must be 
+    available when GAS is burnt using the access key. The burnt GAS will not be refunded but any unburnt GAS that remains can be refunded.
+
+    If this is lower, wallet will throw the following error:
+    Access Key {account_id}:{public_key} does not have enough balance 0.01 for transaction costing 0.018742491841859367297184
+*/  
+const ACCESS_KEY_ALLOWANCE: u128 = 20_000_000_000_000_000_000_000; // 0.02 N 
+/* 
+    minimum amount of NEAR that a new account (with longest possible name) must have when created 
+    If this is less, it will throw a lack balance for state error (assuming you have the same account ID length)
+*/ 
+const NEW_ACCOUNT_BASE: u128 = 2_840_000_000_000_000_000_000; // 0.00284 N
+
+/// Indicates there are no deposit for a callback for better readability.
+const NO_DEPOSIT: u128 = 0;
+
+// Defaulting burnt GAS to be 100 TGas (0.01 $NEAR)
+const BURNT_GAS: u128 = 10_000_000_000_000_000_000_000;
+
+/*
+    GAS Constants
+*/
+const GAS_FOR_SIMPLE_NFT_TRANSFER: Gas = Gas(10_000_000_000_000); // 10 TGas
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(15_000_000_000_000 + GAS_FOR_SIMPLE_NFT_TRANSFER.0); // 15 TGas + 10 TGas = 25 TGas
+
+const GAS_FOR_ON_CLAIM: Gas = Gas(24_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0 + GAS_FOR_SIMPLE_NFT_TRANSFER.0); // 24 TGas + 25 TGas + 10 TGas= 59 TGas 
+const GAS_FOR_CREATE_ACCOUNT: Gas = Gas(28_000_000_000_000); // 28 TGas
+
+const GAS_FOR_STORAGE_BALANCE_BOUNDS: Gas = Gas(10_000_000_000_000); // 10 TGas
+const GAS_FOR_RESOLVE_STORAGE_CHECK: Gas = Gas(25_000_000_000_000); // 25 TGas
+
+const GAS_FOR_FT_TRANSFER: Gas = Gas(7_500_000_000_000); // 7.5 TGas
+const GAS_FOR_STORAGE_DEPOSIT: Gas = Gas(7_500_000_000_000); // 7.5 TGas
+const GAS_FOR_RESOLVE_BATCH: Gas = Gas(13_000_000_000_000 + GAS_FOR_FT_TRANSFER.0 + GAS_FOR_STORAGE_DEPOSIT.0); // 10 TGas + 7.5 TGas + 7.5 TGas = 25 TGas
+
+const ONE_GIGGA_GAS: u64 = 1_000_000_000;
+
+
+/// Methods callable by the function call access key
+const ACCESS_KEY_METHOD_NAMES: &str = "claim,create_account_and_claim";
 
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {
     Accounts,
 }
-
-/// 0.02 N
-const ACCESS_KEY_ALLOWANCE: u128 = 20_000_000_000_000_000_000_000;
-/// can take 0.5 of access key since gas required is 6.6 times what was actually used
-const NEW_ACCOUNT_BASIC_AMOUNT: u128 = 15_000_000_000_000_000_000_000;
-const ON_CREATE_ACCOUNT_GAS: Gas = Gas(40_000_000_000_000);
-const ON_CALLBACK_GAS: Gas = Gas(20_000_000_000_000);
-/// Indicates there are no deposit for a callback for better readability.
-const NO_DEPOSIT: u128 = 0;
-
-/// external and self callbacks
-#[ext_contract(ext_linkdrop)]
-trait ExtLinkdrop {
-    fn create_account(&mut self, new_account_id: AccountId, new_public_key: PublicKey) -> Promise;
+/// Keep track of specific data related to an access key. This allows us to optionally refund funders later. 
+#[near_bindgen]
+#[derive(PanicOnDefault, BorshDeserialize, BorshSerialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AccountData {
+    pub funder_id: AccountId,
+    pub balance: U128,
+    pub token_sender: Option<AccountId>,
+    pub token_contract: Option<AccountId>,
+    pub nft_id: Option<String>,
+    pub ft_balance: Option<U128>,
+    pub ft_storage: Option<U128>,
 }
-#[ext_contract(ext_self)]
-trait ExtLinkdrop {
-    fn on_account_created(&mut self, pk: PublicKey) -> bool;
+
+mod claim;
+mod send;
+mod ext_traits;
+mod nft;
+mod ft;
+
+use crate::ext_traits::*;
+
+#[near_bindgen]
+#[derive(PanicOnDefault, BorshDeserialize, BorshSerialize)]
+pub struct LinkDropProxy {
+    pub linkdrop_contract: AccountId,
+    pub accounts: LookupMap<PublicKey, AccountData>,
 }
 
 #[near_bindgen]
-impl LinkDrop {
+impl LinkDropProxy {
+    /// Initialize proxy hub contract and pass in the desired deployed linkdrop contract (i.e testnet or near)
     #[init]
     pub fn new(linkdrop_contract: AccountId) -> Self {
         Self {
@@ -47,6 +101,7 @@ impl LinkDrop {
         }
     }
 
+    /// Set the desired linkdrop contract to interact with
 	pub fn set_contract(&mut self, linkdrop_contract: AccountId) {
 		assert_eq!(
             env::predecessor_account_id(),
@@ -56,148 +111,18 @@ impl LinkDrop {
 		self.linkdrop_contract = linkdrop_contract;
 	}
 
-	/// sending (adding keys)
-
-    #[payable]
-    pub fn send(&mut self, public_key: PublicKey) -> Promise {
-        assert!(
-            env::attached_deposit() >= ACCESS_KEY_ALLOWANCE,
-            "Deposit < ACCESS_KEY_ALLOWANCE"
-        );
-        let pk = public_key;
-        let value = self.accounts.get(&pk).unwrap_or(0);
-        self.accounts.insert(
-            &pk,
-            &(value + env::attached_deposit() - ACCESS_KEY_ALLOWANCE),
-        );
-        Promise::new(env::current_account_id()).add_access_key(
-            pk,
-            ACCESS_KEY_ALLOWANCE,
-            env::current_account_id(),
-            b"claim,create_account_and_claim".to_vec(),
-        )
-    }
-
-    #[payable]
-    pub fn send_multiple(&mut self, public_keys: Vec<PublicKey>) {
-        assert!(
-            env::attached_deposit() >= ACCESS_KEY_ALLOWANCE,
-            "Deposit < ACCESS_KEY_ALLOWANCE"
-        );
-
-		let current_account_id = env::current_account_id();
-
-		let promise = env::promise_batch_create(&current_account_id);
-
-		let len = public_keys.len() as u128;
-		
-		for pk in public_keys {
-
-			env::promise_batch_action_add_key_with_function_call(
-				promise, 
-				&pk, 
-				0, 
-				ACCESS_KEY_ALLOWANCE, 
-				&current_account_id, 
-				b"claim,create_account_and_claim"
-			);
-			
-			self.accounts.insert(
-				&pk, 
-				&(self.accounts.get(&pk).unwrap_or(0) + env::attached_deposit() / len - ACCESS_KEY_ALLOWANCE),
-			);
-		}
-
-		env::promise_return(promise);
-    }
-
-	/// claiming
-
-	fn process_claim(&mut self) -> Balance {
-		assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "predecessor != current"
-        );
-        let mut amount = self
-            .accounts
-            .remove(&env::signer_account_pk())
-            .expect("Missing public key");
-
-		Promise::new(env::current_account_id()).delete_key(env::signer_account_pk());
-
-		if amount == 0 {
-			amount = NEW_ACCOUNT_BASIC_AMOUNT;
-		}
-
-		amount
-	}
-
-    /// Claim tokens for specific account that are attached to the public key this tx is signed with.
-    pub fn claim(&mut self, account_id: AccountId) -> Promise {
-        assert!(
-            env::is_valid_account_id(account_id.as_bytes()),
-            "Invalid account id"
-        );
-
-        let amount = self.process_claim();
-		
-        Promise::new(account_id).transfer(amount)
-    }
-
-    /// Create new account and and claim tokens to it.
-    pub fn create_account_and_claim(
-        &mut self,
-        new_account_id: AccountId,
-        new_public_key: PublicKey,
-    ) -> Promise {
-        assert!(
-            env::is_valid_account_id(new_account_id.as_bytes()),
-            "Invalid account id"
-        );
-
-        let amount = self.process_claim();
-
-        ext_linkdrop::create_account(
-            new_account_id,
-            new_public_key,
-            &self.linkdrop_contract,
-            amount,
-            ON_CREATE_ACCOUNT_GAS,
-        ).then(ext_self::on_account_created(
-			env::signer_account_pk(),
-			&env::current_account_id(),
-			NO_DEPOSIT,
-			ON_CALLBACK_GAS,
-		))
-    }
-
-    /// Returns the balance associated with given key.
+    /// Returns the balance associated with given key. This is used by the NEAR wallet to display the amount of the linkdrop
     pub fn get_key_balance(&self, key: PublicKey) -> U128 {
+        let account_data = self.accounts
+            .get(&key)
+            .expect("Key missing");
+        (account_data.balance.0).into()
+    }
+
+    /// Returns the account data corresponding to a specific key
+    pub fn get_key_information(&self, key: PublicKey) -> AccountData {
         self.accounts
             .get(&key)
             .expect("Key missing")
-            .into()
-    }
-
-	/// self callback checks if account was created successfully or not
-    pub fn on_account_created(&mut self, pk:PublicKey) -> bool {
-        assert_eq!(
-            env::predecessor_account_id(),
-            env::current_account_id(),
-            "predecessor != current"
-        );
-		assert_eq!(env::promise_results_count(), 1, "no promise result");
-        let creation_succeeded = matches!(env::promise_result(0), PromiseResult::Successful(_));
-        if !creation_succeeded {
-			// put access key back (was deleted before calling linkdrop contract)
-            Promise::new(env::current_account_id()).add_access_key(
-				pk,
-				ACCESS_KEY_ALLOWANCE,
-				env::current_account_id(),
-				b"claim,create_account_and_claim".to_vec(),
-			);
-        }
-        creation_succeeded
     }
 }
